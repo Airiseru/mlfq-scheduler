@@ -28,3 +28,21 @@ Output:
     - average turn-around time
     - waiting time for each process (arranged alphabetically)
 """
+
+"""Function to keep looping input until valid"""
+def input_int_loop(min_inp: int, max_inp: float) -> int:
+    user_input = -5
+    while (user_input < min_inp) or (user_input > max_inp):
+        try:
+            user_input = int(input(""))
+        except ValueError:
+            continue
+
+    return user_input
+
+if __name__ == "__main__":
+    print("# Enter Scheduler Details #")
+    num_procs: int = input_int_loop(0, 12)
+    q1_allot: int = input_int_loop(4, float('inf'))
+    q2_allot: int = input_int_loop(0, float('inf'))
+    context_switch: int = input_int_loop(-1, 6)
