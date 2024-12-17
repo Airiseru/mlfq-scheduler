@@ -28,6 +28,32 @@ Output:
     - average turn-around time
     - waiting time for each process (arranged alphabetically)
 """
+from dataclasses import dataclass, field
+
+@dataclass
+class Process:
+    """Class for each process"""
+    name: str
+    arrival_time: int
+    cpu_burst: list[int]
+    io_burst: list[int]
+    completion_time: int = field(default=0)
+
+    """Function to calculate the turnaround time of the process"""
+    def get_turnaround_time(self) -> int:
+        return self.completion_time - self.arrival_time
+    
+    """Function to get the turnaround time in a string format for printing"""
+    def print_turnaround_time(self) -> str:
+        return f"{self.completion_time} - {self.arrival_time} = {self.get_turnaround_time()} ms"
+    
+    """Function to calculate the waiting time"""
+    def get_waiting_time(self) -> int:
+        return self.get_turnaround_time() - sum(self.cpu_burst)
+    
+    """Function to get the waiting time in a string format for printing"""
+    def print_waiting_time(self) -> str:
+        return f"{self.get_waiting_time()} ms"
 
 """Function to keep looping input until valid"""
 def input_int_loop(min_inp: int, max_inp: float) -> int:
