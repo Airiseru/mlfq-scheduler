@@ -66,9 +66,27 @@ def input_int_loop(min_inp: int, max_inp: float) -> int:
 
     return user_input
 
+"""Function to process the input about process"""
+def create_new_process(inp: str) -> Process:
+    splitted_inp = inp.split(";")
+    return Process(splitted_inp[0], int(splitted_inp[1]),
+                   [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2==0], # even indices
+                   [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0]) # odd indices
+
 if __name__ == "__main__":
+    # "Global" Variables (temp)
+    process_list: list[Process] = []
+
+    # Get scheduler details from input
     print("# Enter Scheduler Details #")
     num_procs: int = input_int_loop(0, 12)
     q1_allot: int = input_int_loop(4, float('inf'))
     q2_allot: int = input_int_loop(0, float('inf'))
     context_switch: int = input_int_loop(-1, 6)
+
+    # Get process details from input and put into a list
+    print(f"# Enter {num_procs} Process Details #")
+    for _ in range(num_procs):
+        process_list.append(create_new_process(input()))
+
+    print("# Scheduling Results #")
