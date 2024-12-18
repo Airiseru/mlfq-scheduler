@@ -73,9 +73,18 @@ def create_new_process(inp: str) -> Process:
                    [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2==0], # even indices
                    [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0]) # odd indices
 
+"""Function to get Arriving processes"""
+def get_arriving_processes(process_list: list[Process], time: int) -> list[str]:
+    arriving_processes: list[str] = []
+    for process in process_list:
+        if process.arrival_time == time:
+            arriving_processes.append(process.name) 
+    return arriving_processes
+   
 if __name__ == "__main__":
     # "Global" Variables (temp)
     process_list: list[Process] = []
+    time = 0
 
     # Get scheduler details from input
     print("# Enter Scheduler Details #")
@@ -90,3 +99,12 @@ if __name__ == "__main__":
         process_list.append(create_new_process(input()))
 
     print("# Scheduling Results #")
+
+    while (time < 10): #Temporary condition of time < 10.
+        print(f"At Time = {time}")
+        arriving_processes = get_arriving_processes(process_list, time)
+        if arriving_processes != []:
+            print(f"Arriving: {arriving_processes}") #Di ko knows how to print the array without the ''. #future worry
+        time = time + 1
+
+    print("SIMULATION DONE")
