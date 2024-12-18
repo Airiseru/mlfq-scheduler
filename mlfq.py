@@ -211,6 +211,8 @@ if __name__ == "__main__":
         # case 1: process is done
         if current_proc.idx > len(current_proc.cpu_burst) and current_proc.idx > len(current_proc.io_burst):
             # index > len(cpu_burst) essentially means that the process doesn't have to use the cpu anymore
+            print(f"{scheduler.cpu.name} DONE") # print that process is done
+            
             current_proc.completion_time = scheduler.time
             scheduler.empty_cpu()
 
@@ -227,7 +229,7 @@ if __name__ == "__main__":
                 scheduler.sort_queue_three()
 
             scheduler.empty_cpu()
-        
+
         # case 3: process ran out of quantum (q1)
         elif current_proc.quantum_passed == Q1_QUANTUM and current_proc.queue_number == 1:
             scheduler.queue_one.append(current_proc)
