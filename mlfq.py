@@ -40,6 +40,7 @@ class Process:
     idx: int = field(default=0) # to know at which point of the burst the process is in
     quantum_passed: int = field(default=0) # for cpu and io (to know how much time the process used)
     burst_remaining: int = field(default=0)
+    io_remaining: int = field(default=0)
     queue_number: int = field(default=1)
     completion_time: int = field(default=0)
 
@@ -63,11 +64,15 @@ class Process:
     def update_burst(self):
         self.burst_remaining = self.cpu_burst[self.idx] - self.quantum_passed
 
+    """Function to update the time left for current I/O"""
+    def update_io(self):
+        self.io_remaining = self.io_burst[self.idx] - self.quantum_passed
+
 @dataclass
 class Scheduler:
     cpu: Process
     # is_switch: bool = field(default=True)
-    switch_time_pass: int = field(default=0)
+    switch_time_pass: int = field(default=0) # tracks time elapsed for context switch
     process_list: list[Process] = field(default_factory=list)
     arriving_list: list[Process] = field(default_factory=list)
     io_list: list[Process] = field(default_factory=list)
@@ -132,10 +137,15 @@ class Scheduler:
 
     """Function to move a process to the io"""
     def move_to_io(self):
-        self.cpu.quantum_passed = 0 # reset so it can be used for io count
-        self.io_list.append(self.cpu)
+        self.current_process.quantum_passed = 0 # reset so it can be used for io count
+        self.current_process.update_io()
+        self.io_list.append(self.current_process)
         self.empty_cpu # empty cpu
     
+    """Function to remove a process from the I/O"""
+    def remove_from_io(self, proc:Process):
+        self.io_list.remove(proc)
+
     """Function to get the current process"""
     @property
     def current_process(self) -> Process:
@@ -160,9 +170,12 @@ def input_int_loop(min_inp: int, max_inp: float) -> int:
 """Function to process the input about process"""
 def create_new_process(inp: str) -> Process:
     splitted_inp = inp.split(";")
-    return Process(splitted_inp[0], int(splitted_inp[1]),
-                   [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2==0], # even indices
-                   [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0]) # odd indices
+    return Process(
+        name =          splitted_inp[0],
+        arrival_time =  int(splitted_inp[1]),
+        cpu_burst =     [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2==0], # even indices
+        io_burst =      [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0] # odd indices
+    ) 
 
 def proc_list_to_str(lst: list[Process]):
     return ', '.join([proc.name for proc in lst])
@@ -186,10 +199,18 @@ if __name__ == "__main__":
     print(f"# Enter {num_procs} Process Details #")
     for _ in range(num_procs):
         scheduler.process_list.append(create_new_process(input()))
-
     print("# Scheduling Results #")
 
-    while (scheduler.time < 20): #Temporary condition of time < 10.
+    while (
+        scheduler.time <= 200 and (
+        scheduler.time == 0 or (
+        scheduler.queue_one != [] or
+        scheduler.queue_two != [] or
+        scheduler.queue_three != [] or
+        scheduler.io_list != [] or
+        scheduler.current_process.name != ""
+        ))
+    ):
         print(f"At Time = {scheduler.time}")
         """
         1) Check for arriving processes
@@ -203,7 +224,7 @@ if __name__ == "__main__":
 
         # Print Arriving
         if scheduler.arriving_list:
-            print(f"Arriving : [{proc_list_to_str(scheduler.arriving_list)}]") #Di ko knows how to print the array without the ''. #future worry
+            print(f"Arriving : [{proc_list_to_str(scheduler.arriving_list)}]")
         
         # Move Arriving Processes to Queue One
         scheduler.arriving_to_queue()
@@ -212,15 +233,28 @@ if __name__ == "__main__":
         current_proc: Process = scheduler.current_process
         process_demoted = ""
 
-        # case 1: process is done
-        if current_proc.idx > len(current_proc.cpu_burst) and current_proc.idx > len(current_proc.io_burst):
-            # index > len(cpu_burst) essentially means that the process doesn't have to use the cpu anymore
-            print(f"{scheduler.cpu.name} DONE") # print that process is done
-
-            current_proc.completion_time = scheduler.time
+        min_queue_num = min(
+            [idx+1 if queue else 4 for idx, queue in 
+            enumerate([scheduler.queue_one, scheduler.queue_two, scheduler.queue_three])]
+        )
+        print(min_queue_num)
+        if min_queue_num < current_proc.queue_number:
+            scheduler.add_to_queue(current_proc.queue_number, current_proc)
             scheduler.empty_cpu()
+            scheduler.queue_to_CPU()
 
-        # case 2: process ran out of allotment
+        # -- case 1: process finished current cpu burst time
+        if current_proc.burst_remaining == 0 and current_proc.name != "":
+            if  current_proc.idx >= len(current_proc.io_burst): # process ends after a burst
+                print(f"{scheduler.cpu.name} DONE") # print that process is done
+
+                current_proc.completion_time = scheduler.time
+                scheduler.empty_cpu()
+            else: # process not done yet; move to i/o
+                scheduler.move_to_io()
+                scheduler.empty_cpu()
+        
+        # -- case 2: process ran out of allotment
         elif current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
             process_demoted = scheduler.cpu.name
             # case 2.1: process is not the last queue
@@ -234,14 +268,9 @@ if __name__ == "__main__":
 
             scheduler.empty_cpu()
 
-        # case 3: process ran out of quantum (q1)
+        # -- case 3: process ran out of quantum (q1)
         elif current_proc.quantum_passed == Q1_QUANTUM and current_proc.queue_number == 1:
             scheduler.queue_one.append(current_proc)
-            scheduler.empty_cpu()
-
-        # case 4: process finished current cpu burst time
-        elif current_proc.burst_remaining == 0 and current_proc.name != "":
-            scheduler.move_to_io()
             scheduler.empty_cpu()
 
         # Move Queued Process to CPU if CPU is Empty
@@ -249,15 +278,30 @@ if __name__ == "__main__":
             scheduler.queue_to_CPU()
 
         # Handle I/O
-        # 1. check if the io is done (add 1 to idx and move back to proper queue)
-        # 2. if not done, add 1 to the quantum_passed
+        # -- 1. check if the io is done (add 1 to idx and move back to proper queue)
+        # -- 2. if not done, add 1 to the quantum_passed
+        for proc in scheduler.io_list:
+            if proc.io_remaining == 0:
+                proc.idx += 1
+                proc.quantum_passed = 0
+                print(proc.name, proc.idx, len(proc.io_burst))
+                if proc.idx != len(proc.cpu_burst): 
+                    scheduler.add_to_queue(proc.queue_number, proc)
+                else: # no more bursts
+                    print(f"{proc.name} DONE") # print that process is done
+                    proc.completion_time = scheduler.time
+                scheduler.remove_from_io(proc)
+            else:
+                proc.quantum_passed += 1
+                proc.update_io()
 
-        # Update quantum
-        # only update after context switch
+        # Update Quantum
+        # -- only update after context switch
         if scheduler.switch_time_pass == context_switch:
             scheduler.current_process.quantum_passed += 1
-        # if cpu is in idle mode, no context switch
         elif scheduler.cpu.name == '':
+            # cpu is in idle mode, no context switch
+            # -- to immediately satisfy previous condition
             scheduler.switch_time_pass = context_switch
         else:
             scheduler.switch_time_pass += 1
@@ -279,4 +323,15 @@ if __name__ == "__main__":
         scheduler.time = scheduler.time + 1
         scheduler.cpu.update_burst()
 
-    print("SIMULATION DONE")
+    print("SIMULATION DONE\n")
+
+    # Print Parameters
+    sub_total = 0
+    for proc in sorted(scheduler.process_list, key=lambda x: x.name):
+        sub_total += proc.get_turnaround_time()
+        print(f"Turn-around time for Process {proc.name} : {proc.print_turnaround_time()}")
+    
+    print(f"Average Turn-around time = {round(sub_total/len(scheduler.process_list),2)} ms")
+    
+    for proc in sorted(scheduler.process_list, key=lambda x: x.name):
+        print(f"Waiting time for Process {proc.name} : {proc.print_waiting_time()}")
