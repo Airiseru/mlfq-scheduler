@@ -252,20 +252,13 @@ if __name__ == "__main__":
 
         # Update quantum
         # only update after context switch
-        print(f"{scheduler.switch_time_pass}")
-        # if scheduler.is_switch:
         if scheduler.switch_time_pass == context_switch:
-                # scheduler.is_switch = False
             scheduler.current_process.quantum_passed += 1
-            # else:
-            #     scheduler.switch_time_pass += 1
+        # if cpu is in idle mode, no context switch
         elif scheduler.cpu.name == '':
-            # print("case b")
             scheduler.switch_time_pass = context_switch
         else:
-            # print("case c")
             scheduler.switch_time_pass += 1
-            # scheduler.current_process.quantum_passed += 1
 
         # Print Queues
         print(f"Queues : {[proc.name for proc in scheduler.queue_one]};{[proc.name for proc in scheduler.queue_two]};{[proc.name for proc in scheduler.queue_three]}")
