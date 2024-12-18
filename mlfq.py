@@ -91,6 +91,7 @@ class Scheduler:
     """Function to move Queued process to CPU"""
     def queue_to_CPU(self):
         self.is_switch = True
+        self.switch_time_pass = 0
         if self.queue_one and self.cpu.name == "":
             self.cpu = self.queue_one.pop(0)
 
@@ -252,6 +253,9 @@ if __name__ == "__main__":
         if scheduler.switch_time_pass == context_switch and scheduler.is_switch:
             scheduler.is_switch = False
             scheduler.current_process.quantum_passed += 1
+        # idle state, no context switch
+        elif scheduler.cpu.name == '':
+            scheduler.is_switch = False
         else:
             scheduler.switch_time_pass += 1
 
