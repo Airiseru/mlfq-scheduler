@@ -214,7 +214,7 @@ if __name__ == "__main__":
     ):
         print(f"At Time = {scheduler.time}")
         while(done_processes):
-            print(f"{done_processes[0]} DONE")
+            print(f"{done_processes[0].name} DONE")
             done_processes.pop(0)
         
         """
