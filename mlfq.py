@@ -141,11 +141,10 @@ class Scheduler:
     def current_process(self) -> Process:
         return self.cpu
 
-    """Function to print the process in IO"""
+    """Function to get the list of processes in the I/O, sorted alphabetically"""
     @property
     def in_io(self):
-        lst = [proc.name for proc in self.io_list]
-        return sorted(lst)
+        return sorted(self.io_list, key = lambda x: x.name)
 
 """Function to keep looping input until valid"""
 def input_int_loop(min_inp: int, max_inp: float) -> int:
@@ -164,6 +163,9 @@ def create_new_process(inp: str) -> Process:
     return Process(splitted_inp[0], int(splitted_inp[1]),
                    [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2==0], # even indices
                    [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0]) # odd indices
+
+def proc_list_to_str(lst: list[Process]):
+    return ', '.join([proc.name for proc in lst])
 
 if __name__ == "__main__":
     # "Global" Variables (temp)
@@ -201,7 +203,7 @@ if __name__ == "__main__":
 
         # Print Arriving
         if scheduler.arriving_list:
-            print(f"Arriving : {[proc.name for proc in scheduler.arriving_list]}") #Di ko knows how to print the array without the ''. #future worry
+            print(f"Arriving : [{proc_list_to_str(scheduler.arriving_list)}]") #Di ko knows how to print the array without the ''. #future worry
         
         # Move Arriving Processes to Queue One
         scheduler.arriving_to_queue()
@@ -261,14 +263,14 @@ if __name__ == "__main__":
             scheduler.switch_time_pass += 1
 
         # Print Queues
-        print(f"Queues : {[proc.name for proc in scheduler.queue_one]};{[proc.name for proc in scheduler.queue_two]};{[proc.name for proc in scheduler.queue_three]}")
+        print(f"Queues : [{proc_list_to_str(scheduler.queue_one)}];[{proc_list_to_str(scheduler.queue_two)}];[{proc_list_to_str(scheduler.queue_three)}]")
 
         # CPU
         print(f"CPU : {scheduler.cpu.name}")
         
         # Print I/0
         if scheduler.io_list:
-            print(f"I/O : {scheduler.in_io}")
+            print(f"I/O : [{proc_list_to_str(scheduler.in_io)}]")
 
         if process_demoted:
             print(f"{process_demoted} DEMOTED")
