@@ -76,6 +76,7 @@ class Scheduler:
     process_list: list[Process] = field(default_factory=list)
     arriving_list: list[Process] = field(default_factory=list)
     io_list: list[Process] = field(default_factory=list)
+    finished_list: list[Process] = field(default_factory=list) # list for processes returning from CPU
     queue_one: list[Process] = field(default_factory=list)
     queue_two: list[Process] = field(default_factory=list)
     queue_three: list[Process] = field(default_factory=list)
@@ -90,14 +91,14 @@ class Scheduler:
 
     """Function to add Arriving processes to the Queue"""
     def arriving_to_queue(self):
-        self.queue_one = self.arriving_list + self.queue_one
-        self.arriving_list = []
-        # while self.arriving_list:
-        #     self.queue_one.append(self.arriving_list.pop(0))
+        while self.arriving_list:
+            self.queue_one.append(self.arriving_list.pop(0))
+
+        self.queue_one += self.finished_list
+        self.finished_list = []
 
     """Function to move Queued process to CPU"""
     def queue_to_CPU(self):
-        # self.is_switch = True
         self.switch_time_pass = 0
         if self.queue_one and self.cpu.name == "":
             self.cpu = self.queue_one.pop(0)
@@ -215,7 +216,6 @@ if __name__ == "__main__":
         ))
     ):
         print(f"At Time = {scheduler.time}")
-        print(scheduler)
         while(done_processes):
             print(f"{done_processes[0].name} DONE")
             done_processes.pop(0)
@@ -257,8 +257,6 @@ if __name__ == "__main__":
             scheduler.queue_to_CPU()
             current_proc = scheduler.current_process
 
-        print("++++", scheduler.cpu)
-
         # Handle I/O
         # -- 1. Add 1 to quantum_passed
         # -- 2. Check if the I/O is done 
@@ -272,7 +270,7 @@ if __name__ == "__main__":
                 proc.quantum_passed = 0
 
                 # Check if there's still remaining CPU burst time for the process
-                if proc.idx != len(proc.cpu_burst): 
+                if proc.idx != len(proc.cpu_burst):
                     scheduler.add_to_queue(proc.queue_number, proc)
                 else: # no more bursts => DONE
                     done_processes.append(proc)
@@ -286,24 +284,21 @@ if __name__ == "__main__":
         # Update Quantum for Process in CPU
         # -- only update after context switch
         prev_switch: int = scheduler.switch_time_pass
-        print("----", scheduler.switch_time_pass)
 
         if scheduler.switch_time_pass == context_switch:
-            print("Case 1")
             # context switch done
-            scheduler.current_process.quantum_passed += 1
-        elif scheduler.cpu.name == '':
-            print("Case 2")
-            # cpu is in idle mode, no context switch
-            # -- to immediately satisfy previous condition
             scheduler.switch_time_pass = context_switch
+            scheduler.current_process.quantum_passed += 1
+        # elif scheduler.cpu.name == '':
+        #     print("Case 2")
+        #     # cpu is in idle mode, no context switch
+        #     # -- to immediately satisfy previous condition
+        #     scheduler.switch_time_pass = context_switch
         else:
-            print("Last Case")
             scheduler.switch_time_pass += 1
 
         scheduler.cpu.update_burst()
         scheduler.time = scheduler.time + 1
-        print("middle", scheduler.switch_time_pass, scheduler.process_list)
 
         # Print Queues
         print(f"Queues : [{proc_list_to_str(scheduler.queue_one)}];[{proc_list_to_str(scheduler.queue_two)}];[{proc_list_to_str(scheduler.queue_three)}]")
@@ -323,12 +318,10 @@ if __name__ == "__main__":
         # -- Case 1: process finished current cpu burst time
         if current_proc.burst_remaining == 0 and current_proc.name != "":
             if  current_proc.idx >= len(current_proc.io_burst): # process ends after consuming its last burst
-                print("====output case 1.1")
                 done_processes.append(scheduler.cpu) # put process to DONE queue
                 current_proc.completion_time = scheduler.time
                 scheduler.empty_cpu()
             else: # process not done yet; move to i/o
-                print("====output case 1.2")
                 scheduler.move_to_io()
                 scheduler.empty_cpu()
         
@@ -339,12 +332,10 @@ if __name__ == "__main__":
             process_demoted = scheduler.cpu.name
             # Case 2.1: process is not the last queue
             if current_proc.queue_number != 3:
-                print("====output case 2.1")
                 scheduler.move_process_down_queue()
             
             # Case 2.2: process is in the last queue
             else:
-                print("====output case 2.2")
                 scheduler.queue_three.append(scheduler.cpu)
                 scheduler.sort_queue_three()
 
@@ -353,16 +344,15 @@ if __name__ == "__main__":
         # -- Case 3: process ran out of quantum (Q1)
         # ----- Reset quantum and put process at the end of Q1's RQ
         elif current_proc.quantum_passed == Q1_QUANTUM and current_proc.queue_number == 1 and current_proc.q1_run_counter == 0:
-            print("====output case 3")
             current_proc.q1_run_counter += 1
-            scheduler.queue_one.append(current_proc)
+            scheduler.finished_list.append(current_proc)
+            # scheduler.queue_one.append(current_proc)
             scheduler.empty_cpu()
 
         # Print Demoted Process
         if process_demoted:
             print(f"{process_demoted} DEMOTED")
 
-        print(scheduler.process_list)
         print()
 
     print("SIMULATION DONE\n")
