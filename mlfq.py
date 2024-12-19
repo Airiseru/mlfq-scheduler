@@ -35,7 +35,10 @@ from io import TextIOWrapper
 from sys import argv
 from pathlib import Path
 from dataclasses import dataclass, field
+from functools import reduce
 
+# constants
+Q1_QUANTUM: int = 4
 
 @dataclass
 class Process:
@@ -88,7 +91,7 @@ class Process:
         )
 
 class SchedulerAlgorithm(Protocol):
-    _priority_queue:list[Process] = list()
+    _priority_queue:list[Process]
 
     def sort(self) -> None:
         ...
@@ -103,7 +106,6 @@ class SchedulerAlgorithm(Protocol):
     @property
     def priority_queue(self) -> list[Process]:
         return self._priority_queue
-
 
 class RoundRobinAlgorithm(SchedulerAlgorithm):
     def __init__(self):
@@ -126,7 +128,6 @@ class SJFAlgorithm(SchedulerAlgorithm):
     def sort(self):
         sorted(self._priority_queue, key = lambda p: p.burst_remaining)
 
-
 @dataclass
 class MFLQScheduler:
     cpu: Process
@@ -137,6 +138,7 @@ class MFLQScheduler:
     finished_list: list[Process] = field(default_factory=list) # list for processes returning from CPU
     priority_queues: list[SchedulerAlgorithm] = field(default_factory=list)
     time: int = field(default=0)
+    idle: bool = False
 
     """Function to get Arriving processes"""
     def get_arriving_processes(self) -> None:
@@ -199,6 +201,20 @@ class MFLQScheduler:
     def remove_from_io(self, proc:Process) -> None:
         self.io_list.remove(proc)
 
+    def try_idle(self) -> bool:
+        if (self.io_list != [] or scheduler.current_process.name != ""):
+            self.idle = False
+            return False
+
+        for pq in self.priority_queues:
+            if pq.priority_queue != []:
+                self.idle = False
+                return False
+
+        self.idle = True
+        return True
+
+
     """Function to get the current process"""
     @property
     def current_process(self) -> Process:
@@ -208,6 +224,7 @@ class MFLQScheduler:
     @property
     def in_io(self) -> list[Process]:
         return sorted(self.io_list, key = lambda x: x.name)
+
 
 class View:
     def __init__(self, scheduler:MFLQScheduler) -> None:
@@ -294,7 +311,8 @@ class View:
 
     def print_arriving_processes(self) -> None:
         """ Prints the details of process, with an optional prefix """
-        print(f"Arriving : [{self._proc_list_to_str(self._scheduler.arriving_list)}]")
+        if self._scheduler.arriving_list != []:
+            print(f"Arriving : [{self._proc_list_to_str(self._scheduler.arriving_list)}]")
 
     def _proc_list_to_str(self, lst: list[Process]) -> str:
         return ', '.join([proc.name for proc in lst])
@@ -315,71 +333,35 @@ class View:
         print(f"I/O : [{self._proc_list_to_str(self._scheduler.in_io)}]")
 
     def print_demotion(self, process_name: str) -> None:
-        print(f"{process_name} DEMOTED")
+        if process_name != "":
+            print(f"{process_name} DEMOTED")
 
     def print_simulation_done(self) -> None:
         print("SIMULATION DONE\n")
 
-if __name__ == "__main__":
-    # "Global" Variables (temp)
-    scheduler: MFLQScheduler = MFLQScheduler(priority_queues=[RoundRobinAlgorithm(), FCFSAlgorithm(), SJFAlgorithm()],cpu=Process("", -1, [-1], [-1], -1))
-    view: View = View(scheduler)
-    Q1_QUANTUM: int = 4
-    allotments:list[int] = []
-    done_processes:list[Process] = []
 
-    # Get scheduler details from input
-    allotments, context_switch = view.get_scheduler_details()
+class Controller:
+    def __init__(self, view:View, scheduler:MFLQScheduler) -> None:
+        self.view = view
+        self.scheduler = scheduler
 
-    view.print_scheduler_log()
-    while (
-        scheduler.time <= 100 and (         # REMOVE THIS
-        scheduler.time == 0 or (
-        scheduler.io_list != [] or
-        scheduler.priority_queues[0].priority_queue != [] or
-        scheduler.priority_queues[1].priority_queue != [] or
-        scheduler.priority_queues[2].priority_queue != [] or
-        scheduler.current_process.name != ""
-        ))
-    ):
-        view.print_done_processes(done_processes)
-        """
-        1) Check for arriving processes
-        2) Move arriving processes to Queue One
-        3) Check if CPU should be cleared (process is done/ran out of quantum)
-        4) Move queued process to CPU if CPU is empty
-        5) Check for I/O
-        """
-        # Check for Arriving Processes
-        scheduler.get_arriving_processes()
-
-        # Print Arriving
-        if scheduler.arriving_list:
-            view.print_arriving_processes()
-
-        # Move Arriving Processes to Queue One
-        scheduler.arriving_to_queue()
-
-        current_proc: Process = scheduler.current_process
-        process_demoted = ""
-
-        # Check for Preemption
+    def check_preemption(self, current_proc:Process, done_processes: list[Process], allotments: list[int], context_switch:int) -> None:
         # -- Q1 should be top priority, followed by Q2 then Q3
+        process_demoted = ""
         min_queue_num = min(
             [idx+1 if queue else 4 for idx, queue in
-            enumerate([pq.priority_queue for pq in scheduler.priority_queues])]
-            # enumerate([scheduler.priority_queues[0].priority_queue, scheduler.priority_queues[1].priority_queue, scheduler.priority_queues[2].priority_queue])]
+            enumerate([pq.priority_queue for pq in self.scheduler.priority_queues])]
         )
 
         if min_queue_num < current_proc.queue_number:
-            scheduler.add_to_queue(current_proc.queue_number, current_proc)
-            scheduler.empty_cpu()
-            scheduler.queue_to_CPU()
+            self.scheduler.add_to_queue(current_proc.queue_number, current_proc)
+            self.scheduler.empty_cpu()
+            self.scheduler.queue_to_CPU()
 
         # Move Queued Process to CPU if CPU is Empty
-        if scheduler.cpu.name == "":
-            scheduler.queue_to_CPU()
-            current_proc = scheduler.current_process
+        if self.scheduler.cpu.name == "":
+            self.scheduler.queue_to_CPU()
+            current_proc = self.scheduler.current_process
 
         # Handle I/O
         # -- 1. Add 1 to quantum_passed
@@ -399,11 +381,11 @@ if __name__ == "__main__":
                 else: # no more bursts => DONE
                     done_processes.append(proc)
                     proc.completion_time = scheduler.time
-                scheduler.remove_from_io(proc)
+                self.scheduler.remove_from_io(proc)
 
         # Remove context switch for start
-        if scheduler.time == 0:
-            scheduler.switch_time_pass = context_switch
+        if self.scheduler.time == 0:
+            self.scheduler.switch_time_pass = context_switch
 
         # Update Quantum for Process in CPU
         # -- only update after context switch
@@ -473,10 +455,39 @@ if __name__ == "__main__":
             scheduler.empty_cpu()
 
         # Print Demoted Process
-        if process_demoted:
-            view.print_demotion(process_demoted)
+        view.print_demotion(process_demoted)
 
         print()
 
-    view.print_simulation_done()
-    view.print_scheduler_metrics()
+    def run(self):
+        self.view.print_scheduler_log()
+        # Get scheduler details from input
+        allotments:list[int] = []
+        done_processes:list[Process] = []
+        allotments, context_switch = view.get_scheduler_details()
+        while scheduler.idle != True:
+            """
+            1) Check for arriving processes
+            2) Move arriving processes to Queue One
+            3) Check if CPU should be cleared (process is done/ran out of quantum)
+            4) Move queued process to CPU if CPU is empty
+            5) Check for I/O
+            """
+            self.view.print_done_processes(done_processes)
+            self.scheduler.get_arriving_processes()
+            self.view.print_arriving_processes()
+            self.scheduler.arriving_to_queue()
+            self.check_preemption(self.scheduler.current_process, done_processes, allotments, int(context_switch))
+            self.scheduler.try_idle()
+        view.print_simulation_done()
+        view.print_scheduler_metrics()
+
+
+if __name__ == "__main__":
+    scheduler: MFLQScheduler = MFLQScheduler(priority_queues=[RoundRobinAlgorithm(), FCFSAlgorithm(), SJFAlgorithm()],cpu=Process("", -1, [-1], [-1], -1))
+    view: View = View(scheduler)
+    controller: Controller = Controller(view, scheduler)
+
+    controller.run()
+
+
