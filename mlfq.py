@@ -48,15 +48,15 @@ class Process:
     """Function to calculate the turnaround time of the process"""
     def get_turnaround_time(self) -> int:
         return self.completion_time - self.arrival_time
-    
+
     """Function to get the turnaround time in a string format for printing"""
     def print_turnaround_time(self) -> str:
         return f"{self.completion_time} - {self.arrival_time} = {self.get_turnaround_time()} ms"
-    
+
     """Function to calculate the waiting time"""
     def get_waiting_time(self) -> int:
         return self.get_turnaround_time() - sum(self.cpu_burst)
-    
+
     """Function to get the waiting time in a string format for printing"""
     def print_waiting_time(self) -> str:
         return f"{self.get_waiting_time()} ms"
@@ -81,12 +81,12 @@ class Scheduler:
     queue_two: list[Process] = field(default_factory=list)
     queue_three: list[Process] = field(default_factory=list)
     time: int = field(default=0)
-        
+
     """Function to get Arriving processes"""
     def get_arriving_processes(self):
         for process in self.process_list:
             if process.arrival_time == self.time:
-                self.arriving_list.append(process) 
+                self.arriving_list.append(process)
         self.arriving_list = sorted(self.arriving_list, key = lambda p: p.name)
 
     """Function to add Arriving processes to the Queue"""
@@ -105,7 +105,7 @@ class Scheduler:
 
         elif self.queue_two and self.cpu.name == "":
             self.cpu = self.queue_two.pop(0)
-            
+
         elif self.queue_three and self.cpu.name == "":
             self.cpu = self.queue_three.pop(0)
 
@@ -118,10 +118,10 @@ class Scheduler:
     def add_to_queue(self, queue_num: int, proc: Process):
         if queue_num == 1:
             self.queue_one.append(proc)
-        
+
         elif queue_num == 2:
             self.queue_two.append(proc)
-        
+
         else:
             self.queue_three.append(proc)
             self.sort_queue_three()
@@ -130,7 +130,7 @@ class Scheduler:
     def empty_cpu(self):
         self.switch_time_pass = 0
         self.cpu = Process("", -1, [-1], [-1], -1)
-    
+
     """Function to move a process down a queue"""
     def move_process_down_queue(self):
         queue_no = self.current_process.queue_number
@@ -146,7 +146,7 @@ class Scheduler:
         self.current_process.update_io()
         self.io_list.append(self.current_process)
         self.empty_cpu # empty cpu
-    
+
     """Function to remove a process from the I/O"""
     def remove_from_io(self, proc:Process):
         self.io_list.remove(proc)
@@ -161,16 +161,6 @@ class Scheduler:
     def in_io(self):
         return sorted(self.io_list, key = lambda x: x.name)
 
-"""Function to keep looping input until valid"""
-def input_int_loop(min_inp: int, max_inp: float) -> int:
-    user_input = -5
-    while (user_input < min_inp) or (user_input > max_inp):
-        try:
-            user_input = int(input(""))
-        except ValueError:
-            continue
-
-    return user_input
 
 """Function to process the input about process"""
 def create_new_process(inp: str) -> Process:
@@ -180,31 +170,79 @@ def create_new_process(inp: str) -> Process:
         arrival_time =  int(splitted_inp[1]),
         cpu_burst =     [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2==0], # even indices
         io_burst =      [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0] # odd indices
-    ) 
+    )
 
 def proc_list_to_str(lst: list[Process]):
     return ', '.join([proc.name for proc in lst])
 
+class View:
+    def __init__(self, scheduler:Scheduler):
+        self._scheduler = scheduler
+
+    def get_scheduler_details(self) -> tuple[int, list[int], float]:
+        """Get scheduler details from user details"""
+        allotments:list[int] = list()
+        print("# Enter Scheduler Details #")
+        num_procs = view.input_int_loop(0, 12)
+        allotments.append(view.input_int_loop(4, float('inf'))) # q1 time allotment
+        allotments.append(view.input_int_loop(0, float('inf'))) # q2 time allotment
+        context_switch_duration = view.input_int_loop(-1, 6)
+
+        return num_procs, allotments, context_switch_duration
+
+    def input_int_loop(self, min_inp: int, max_inp: float) -> int:
+        """ Keep asking user for input until valid
+
+        Arguments:
+        min_inp -- minimum, exclusive
+        max_inp -- maximum, exclusive
+
+        """
+        user_input = -5
+        while (user_input < min_inp) or (user_input > max_inp):
+            try:
+                user_input = int(input(""))
+            except ValueError:
+                continue
+
+        return user_input
+
+    def get_process_details(self) -> None:
+        """Get all process details from user input and put into a list"""
+        print(f"# Enter {num_procs} Process Details #")
+        for _ in range(num_procs):
+            self._scheduler.process_list.append(create_new_process(input()))
+
+    def print_scheduler_log(self) -> None:
+        """Prints the events from timestamp t=0 until all processes finish running"""
+        ...
+        print("# Scheduling Results #")
+
+    def print_scheduler_metrics(self) -> None:
+        """Prints the turnaround time per process, average turnaround time, waiting time"""
+        ...
+        sub_total = 0
+        for proc in sorted(self._scheduler.process_list, key=lambda x: x.name):
+            sub_total += proc.get_turnaround_time()
+            print(f"Turn-around time for Process {proc.name} : {proc.print_turnaround_time()}")
+
+        print(f"Average Turn-around time = {round(sub_total/len(scheduler.process_list),2)} ms")
+
+        for proc in sorted(self._scheduler.process_list, key=lambda x: x.name):
+            print(f"Waiting time for Process {proc.name} : {proc.print_waiting_time()}")
+
 if __name__ == "__main__":
     # "Global" Variables (temp)
     scheduler: Scheduler = Scheduler(Process("", -1, [-1], [-1], -1))
-    Q1_QUANTUM = 4
-    allotments = []
-    done_processes = []
+    view: View = View(scheduler)
+    Q1_QUANTUM: int = 4
+    allotments:list[int] = []
+    done_processes:list[Process] = []
 
     # Get scheduler details from input
-    print("# Enter Scheduler Details #")
-    num_procs: int = input_int_loop(0, 12)
-    allotments.append(input_int_loop(4, float('inf'))) # q1 time allotment
-    allotments.append(input_int_loop(0, float('inf'))) # q2 time allotment
-    context_switch: int = input_int_loop(-1, 6)
+    num_procs, allotments, context_switch = view.get_scheduler_details()
 
-    # Get process details from input and put into a list
-    print(f"# Enter {num_procs} Process Details #")
-    for _ in range(num_procs):
-        scheduler.process_list.append(create_new_process(input()))
     print("# Scheduling Results #")
-
     while (
         scheduler.time <= 100 and (         # REMOVE THIS
         scheduler.time == 0 or (
@@ -219,7 +257,7 @@ if __name__ == "__main__":
         while(done_processes):
             print(f"{done_processes[0].name} DONE")
             done_processes.pop(0)
-        
+
         """
         1) Check for arriving processes
         2) Move arriving processes to Queue One
@@ -233,7 +271,7 @@ if __name__ == "__main__":
         # Print Arriving
         if scheduler.arriving_list:
             print(f"Arriving : [{proc_list_to_str(scheduler.arriving_list)}]")
-        
+
         # Move Arriving Processes to Queue One
         scheduler.arriving_to_queue()
 
@@ -243,7 +281,7 @@ if __name__ == "__main__":
         # Check for Preemption
         # -- Q1 should be top priority, followed by Q2 then Q3
         min_queue_num = min(
-            [idx+1 if queue else 4 for idx, queue in 
+            [idx+1 if queue else 4 for idx, queue in
             enumerate([scheduler.queue_one, scheduler.queue_two, scheduler.queue_three])]
         )
 
@@ -259,7 +297,7 @@ if __name__ == "__main__":
 
         # Handle I/O
         # -- 1. Add 1 to quantum_passed
-        # -- 2. Check if the I/O is done 
+        # -- 2. Check if the I/O is done
         for proc in scheduler.io_list:
             proc.quantum_passed += 1
             proc.update_io()
@@ -280,7 +318,7 @@ if __name__ == "__main__":
         # Remove context switch for start
         if scheduler.time == 0:
             scheduler.switch_time_pass = context_switch
-                
+
         # Update Quantum for Process in CPU
         # -- only update after context switch
         prev_switch: int = scheduler.switch_time_pass
@@ -309,7 +347,7 @@ if __name__ == "__main__":
             print("CPU : ")
         else:
             print(f"CPU : {scheduler.cpu.name}")
-        
+
         # Print I/0
         if scheduler.io_list:
             print(f"I/O : [{proc_list_to_str(scheduler.in_io)}]")
@@ -324,16 +362,16 @@ if __name__ == "__main__":
             else: # process not done yet; move to i/o
                 scheduler.move_to_io()
                 scheduler.empty_cpu()
-        
+
         # -- Case 2: process ran out of allotment
         # ----- The process should be demoted, except if
-        # ----- it's in the bottommost queue already 
+        # ----- it's in the bottommost queue already
         elif current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
             process_demoted = scheduler.cpu.name
             # Case 2.1: process is not the last queue
             if current_proc.queue_number != 3:
                 scheduler.move_process_down_queue()
-            
+
             # Case 2.2: process is in the last queue
             else:
                 scheduler.queue_three.append(scheduler.cpu)
@@ -357,13 +395,4 @@ if __name__ == "__main__":
 
     print("SIMULATION DONE\n")
 
-    # Print Parameters
-    sub_total = 0
-    for proc in sorted(scheduler.process_list, key=lambda x: x.name):
-        sub_total += proc.get_turnaround_time()
-        print(f"Turn-around time for Process {proc.name} : {proc.print_turnaround_time()}")
-    
-    print(f"Average Turn-around time = {round(sub_total/len(scheduler.process_list),2)} ms")
-    
-    for proc in sorted(scheduler.process_list, key=lambda x: x.name):
-        print(f"Waiting time for Process {proc.name} : {proc.print_waiting_time()}")
+    view.print_scheduler_metrics()
