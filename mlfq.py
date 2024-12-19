@@ -367,7 +367,6 @@ class Controller:
         # -- 1. Add 1 to quantum_passed
         # -- 2. Check if the I/O is done
         for proc in self.scheduler.io_list:
-            proc.quantum_passed += 1
             proc.update_io()
 
             # Check if the I/O is done
@@ -382,6 +381,7 @@ class Controller:
                     done_processes.append(proc)
                     proc.completion_time = scheduler.time
                 self.scheduler.remove_from_io(proc)
+            proc.quantum_passed += 1
 
         # Remove context switch for start
         if self.scheduler.time == 0:
