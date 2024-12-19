@@ -126,7 +126,7 @@ class SJFAlgorithm(SchedulerAlgorithm):
 
 @dataclass
 class MLFQScheduler:
-    cpu: Process = field(default=Process("", -1, [-1], [-1]))
+    cpu: Process
     switch_time_pass: int = field(default=0) # tracks time elapsed for context switch
     process_list: list[Process] = field(default_factory=list)
     arriving_list: list[Process] = field(default_factory=list)
@@ -194,7 +194,9 @@ class MLFQScheduler:
         self.empty_cpu() # empty cpu
 
     """Function to move a process to the io"""
-    def move_to_io(self) -> None:
+    def move_to_io(self, demoted: bool) -> None:
+        if (demoted):
+            self.current_process.queue_number += 1
         self.cpu.quantum_passed = 0 # reset so it can be used for io count
         self.cpu.q1_run_counter = 0
         self.cpu.update_io()
@@ -522,11 +524,15 @@ class Controller:
                     scheduler.finished_processes.append(current_proc)
                 # Process still not done; move to IO
                 else:
-                    scheduler.move_to_io()
-
+                    demoted = False
+                    if current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
+                        demoted_process = current_proc.name
+                        demoted = True
+                    scheduler.move_to_io(demoted)
+                    
                 scheduler.empty_cpu()
 
-            # Check if process ran out of allotment
+            # Check if process ran out of allotment (No I/O)
             elif current_proc.queue_number != 3:
                 if current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
                     demoted_process = current_proc.name
@@ -549,7 +555,7 @@ class Controller:
 if __name__ == "__main__":
     queues: list[SchedulerAlgorithm] = [RoundRobinAlgorithm(Q1_QUANTUM), FCFSAlgorithm(), SJFAlgorithm()]
 
-    scheduler: MLFQScheduler = MLFQScheduler(priority_queues=queues)
+    scheduler: MLFQScheduler = MLFQScheduler(cpu=Process("", -1, [-1], [-1]),priority_queues=queues)
     view: View = View(scheduler)
     controller: Controller = Controller(view, scheduler)
 
