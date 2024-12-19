@@ -29,11 +29,13 @@ Output:
     - waiting time for each process (arranged alphabetically)
 """
 from __future__ import annotations
+from typing import Protocol
 from os import path
 from io import TextIOWrapper
 from sys import argv
 from pathlib import Path
 from dataclasses import dataclass, field
+
 
 @dataclass
 class Process:
@@ -85,17 +87,55 @@ class Process:
             io_burst =      [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0] # odd indices
         )
 
+class SchedulerAlgorithm(Protocol):
+    _priority_queue:list[Process] = list()
+
+    def sort(self) -> None:
+        ...
+
+    def add_process(self, proc:Process) -> None:
+        self._priority_queue.append(proc)
+        self.sort()
+
+    def remove_process(self, index:int=0) -> Process:
+        return self._priority_queue.pop(index)
+
+    @property
+    def priority_queue(self) -> list[Process]:
+        return self._priority_queue
+
+
+class RoundRobinAlgorithm(SchedulerAlgorithm):
+    def __init__(self):
+        self._priority_queue = list()
+
+    def sort(self) -> None:
+        pass
+
+class FCFSAlgorithm(SchedulerAlgorithm):
+    def __init__(self):
+        self._priority_queue = list()
+
+    def sort(self) -> None:
+        pass
+
+class SJFAlgorithm(SchedulerAlgorithm):
+    def __init__(self):
+        self._priority_queue = list()
+
+    def sort(self):
+        sorted(self._priority_queue, key = lambda p: p.burst_remaining)
+
+
 @dataclass
-class Scheduler:
+class MFLQScheduler:
     cpu: Process
     switch_time_pass: int = field(default=0) # tracks time elapsed for context switch
     process_list: list[Process] = field(default_factory=list)
     arriving_list: list[Process] = field(default_factory=list)
     io_list: list[Process] = field(default_factory=list)
     finished_list: list[Process] = field(default_factory=list) # list for processes returning from CPU
-    queue_one: list[Process] = field(default_factory=list)
-    queue_two: list[Process] = field(default_factory=list)
-    queue_three: list[Process] = field(default_factory=list)
+    priority_queues: list[SchedulerAlgorithm] = field(default_factory=list)
     time: int = field(default=0)
 
     """Function to get Arriving processes"""
@@ -108,39 +148,31 @@ class Scheduler:
     """Function to add Arriving processes to the Queue"""
     def arriving_to_queue(self) -> None:
         while self.arriving_list:
-            self.queue_one.append(self.arriving_list.pop(0))
+            self.priority_queues[0].add_process(self.arriving_list.pop(0))
 
-        self.queue_one += self.finished_list
+        for proc in self.finished_list:
+            self.priority_queues[0].add_process(proc)
         self.finished_list = []
 
     """Function to move Queued process to CPU"""
     def queue_to_CPU(self) -> None:
         self.switch_time_pass = 0
-        if self.queue_one and self.cpu.name == "":
-            self.cpu = self.queue_one.pop(0)
+        if self.priority_queues[0].priority_queue and self.cpu.name == "":
+            self.cpu = self.priority_queues[0].remove_process()
 
-        elif self.queue_two and self.cpu.name == "":
-            self.cpu = self.queue_two.pop(0)
+        elif self.priority_queues[1].priority_queue and self.cpu.name == "":
+            self.cpu = self.priority_queues[1].remove_process()
 
-        elif self.queue_three and self.cpu.name == "":
-            self.cpu = self.queue_three.pop(0)
+        elif self.priority_queues[2].priority_queue and self.cpu.name == "":
+            self.cpu = self.priority_queues[2].remove_process()
 
-    """Function to sort the third queue"""
-    def sort_queue_three(self) -> None:
-        # sort the queue based on the shortest job first on current burst time
-        self.queue_three = sorted(self.queue_three, key = lambda p: p.burst_remaining)
+    def sort_priority_queues(self) -> None:
+        for pq in self.priority_queues:
+            pq.sort()
 
     """Function to add to proper queue"""
     def add_to_queue(self, queue_num: int, proc: Process) -> None:
-        if queue_num == 1:
-            self.queue_one.append(proc)
-
-        elif queue_num == 2:
-            self.queue_two.append(proc)
-
-        else:
-            self.queue_three.append(proc)
-            self.sort_queue_three()
+        self.priority_queues[queue_num-1].add_process(proc)
 
     """Function to empty the cpu"""
     def empty_cpu(self) -> None:
@@ -178,7 +210,7 @@ class Scheduler:
         return sorted(self.io_list, key = lambda x: x.name)
 
 class View:
-    def __init__(self, scheduler:Scheduler) -> None:
+    def __init__(self, scheduler:MFLQScheduler) -> None:
         self._scheduler = scheduler
 
     def get_scheduler_details(self) -> tuple[list[int], float]:
@@ -274,7 +306,10 @@ class View:
             done_processes.pop(0)
 
     def print_all_queues(self) -> None:
-        print(f"Queues : [{self._proc_list_to_str(self._scheduler.queue_one)}];[{self._proc_list_to_str(self._scheduler.queue_two)}];[{self._proc_list_to_str(self._scheduler.queue_three)}]")
+        print("Queues : ", end="")
+        for _, elem in enumerate(self._scheduler.priority_queues):
+            print(f"[{self._proc_list_to_str(elem.priority_queue)}]",end=";")
+        print()
 
     def print_io(self) -> None:
         print(f"I/O : [{self._proc_list_to_str(self._scheduler.in_io)}]")
@@ -287,7 +322,7 @@ class View:
 
 if __name__ == "__main__":
     # "Global" Variables (temp)
-    scheduler: Scheduler = Scheduler(Process("", -1, [-1], [-1], -1))
+    scheduler: MFLQScheduler = MFLQScheduler(priority_queues=[RoundRobinAlgorithm(), FCFSAlgorithm(), SJFAlgorithm()],cpu=Process("", -1, [-1], [-1], -1))
     view: View = View(scheduler)
     Q1_QUANTUM: int = 4
     allotments:list[int] = []
@@ -300,10 +335,10 @@ if __name__ == "__main__":
     while (
         scheduler.time <= 100 and (         # REMOVE THIS
         scheduler.time == 0 or (
-        scheduler.queue_one != [] or
-        scheduler.queue_two != [] or
-        scheduler.queue_three != [] or
         scheduler.io_list != [] or
+        scheduler.priority_queues[0].priority_queue != [] or
+        scheduler.priority_queues[1].priority_queue != [] or
+        scheduler.priority_queues[2].priority_queue != [] or
         scheduler.current_process.name != ""
         ))
     ):
@@ -332,7 +367,8 @@ if __name__ == "__main__":
         # -- Q1 should be top priority, followed by Q2 then Q3
         min_queue_num = min(
             [idx+1 if queue else 4 for idx, queue in
-            enumerate([scheduler.queue_one, scheduler.queue_two, scheduler.queue_three])]
+            enumerate([pq.priority_queue for pq in scheduler.priority_queues])]
+            # enumerate([scheduler.priority_queues[0].priority_queue, scheduler.priority_queues[1].priority_queue, scheduler.priority_queues[2].priority_queue])]
         )
 
         if min_queue_num < current_proc.queue_number:
@@ -424,8 +460,7 @@ if __name__ == "__main__":
 
             # Case 2.2: process is in the last queue
             else:
-                scheduler.queue_three.append(scheduler.cpu)
-                scheduler.sort_queue_three()
+                scheduler.priority_queues[2].add_process(scheduler.cpu)
 
             scheduler.empty_cpu()
 
