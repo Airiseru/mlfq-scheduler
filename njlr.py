@@ -106,13 +106,17 @@ class SchedulerAlgorithm(Protocol):
     @property
     def priority_queue(self) -> list[Process]:
         return self._priority_queue
+    
+    @property
+    def get_queue(self) -> list[Process]:
+        return self._priority_queue
 
 class RoundRobinAlgorithm(SchedulerAlgorithm):
     def __init__(self):
         self._priority_queue = list()
     
     @property
-    def get_queue(self) -> None:
+    def get_queue(self) -> list[Process]:
         return self._priority_queue
 
     def sort(self) -> None:
@@ -123,7 +127,7 @@ class FCFSAlgorithm(SchedulerAlgorithm):
         self._priority_queue = list()
     
     @property
-    def get_queue(self) -> None:
+    def get_queue(self) -> list[Process]:
         return self._priority_queue
 
     def sort(self) -> None:
@@ -134,7 +138,7 @@ class SJFAlgorithm(SchedulerAlgorithm):
         self._priority_queue = list()
     
     @property
-    def get_queue(self) -> None:
+    def get_queue(self) -> list[Process]:
         return self._priority_queue
 
     def sort(self):
@@ -173,7 +177,7 @@ class MFLQScheduler:
                     self.allotments.append(int(input.readline().strip("\n ")))
                     self.allotments.append(int(input.readline().strip("\n ")))
                     self.context_switch_duration = int(input.readline().strip("\n "))
-                    self._get_process_details(num_procs, input)
+                    self._get_process_details(self.num_procs, input)
             except:
                 raise FileNotFoundError("Input: unable to open provided input text file")
 
@@ -183,7 +187,7 @@ class MFLQScheduler:
         self.allotments.append(self._input_int_loop(4, float('inf'))) # q1 time allotment
         self.allotments.append(self._input_int_loop(0, float('inf'))) # q2 time allotment
         self.context_switch_duration = self._input_int_loop(-1, 6)
-        self._get_process_details()
+        self._get_process_details(self.num_procs)
     
     def _input_int_loop(self, min_inp: int, max_inp: float) -> int:
         """ Keep asking user for input until valid
@@ -202,7 +206,7 @@ class MFLQScheduler:
 
         return user_input
 
-    def _get_process_details(self, input_file: TextIOWrapper | None = None) -> None:
+    def _get_process_details(self, num_procs:int, input_file: TextIOWrapper | None = None) -> None:
         """Get all process details from user input and put into a list"""
         # Case : input.txt file was provided
         if input_file != None:
@@ -339,7 +343,7 @@ class MFLQScheduler:
                 if proc.idx != len(proc.cpu_burst):
                     self.add_to_queue(proc.queue_number, proc)
                 else:
-                    done_processes.append(proc)
+                    self.done_processes.append(proc)
                     proc.completion_time = self.time + 1
                 
                 self.remove_from_io(proc)
@@ -361,7 +365,7 @@ class MFLQScheduler:
             self.add_to_queue(queue_no+1, self.cpu)
             self.cpu.queue_number += 1 # update queue number
         else:
-            self.priority_queues[2].add_process(cpu)
+            self.priority_queues[2].add_process(self.cpu)
 
     """Function to move a process to the io"""
     def move_to_io(self) -> None:
@@ -405,7 +409,7 @@ class View:
         else:
             print(F"CPU : {cpu.name}")
             
-    def print_io(self, io: List[Process]) -> None:
+    def print_io(self, io: list[Process]) -> None:
         print(f"I/O : [{self._proc_list_to_str(io)}]")
 
     def print_arriving(self, arriving: list[Process]) -> None:
@@ -443,7 +447,7 @@ class View:
         print("SIMULATION DONE\n")
     
 class Controller:
-    def __init__(self, view: View, model: Model) -> None:
+    def __init__(self, view: View, model: MFLQScheduler) -> None:
         self.view = view
         self.model = model
       
@@ -490,8 +494,7 @@ class Controller:
         
 if __name__ == "__main__":
     view: View = View()
-    model: Model = MFLQScheduler(priority_queues=[RoundRobinAlgorithm(), FCFSAlgorithm(), SJFAlgorithm()]
-                                ,cpu=Process("", -1, [-1], [-1], -1))
+    model: MFLQScheduler = MFLQScheduler(priority_queues=[RoundRobinAlgorithm(), FCFSAlgorithm(), SJFAlgorithm()] ,cpu=Process("", -1, [-1], [-1], -1))
     controller: Controller = Controller(view, model)
 
     controller.run()
