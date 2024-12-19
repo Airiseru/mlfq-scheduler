@@ -366,7 +366,7 @@ class Controller:
         # Handle I/O
         # -- 1. Add 1 to quantum_passed
         # -- 2. Check if the I/O is done
-        for proc in scheduler.io_list:
+        for proc in self.scheduler.io_list:
             proc.quantum_passed += 1
             proc.update_io()
 
@@ -377,7 +377,7 @@ class Controller:
 
                 # Check if there's still remaining CPU burst time for the process
                 if proc.idx != len(proc.cpu_burst):
-                    scheduler.add_to_queue(proc.queue_number, proc)
+                    self.scheduler.add_to_queue(proc.queue_number, proc)
                 else: # no more bursts => DONE
                     done_processes.append(proc)
                     proc.completion_time = scheduler.time
