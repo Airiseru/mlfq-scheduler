@@ -389,73 +389,73 @@ class Controller:
 
         # Update Quantum for Process in CPU
         # -- only update after context switch
-        prev_switch: int = scheduler.switch_time_pass
+        prev_switch: int = self.scheduler.switch_time_pass
 
-        if scheduler.switch_time_pass == context_switch:
+        if self.scheduler.switch_time_pass == context_switch:
             # context switch done
-            scheduler.switch_time_pass = context_switch
-            scheduler.current_process.quantum_passed += 1
+            self.scheduler.switch_time_pass = context_switch
+            self.scheduler.current_process.quantum_passed += 1
         # elif scheduler.cpu.name == '':
         #     print("Case 2")
         #     # cpu is in idle mode, no context switch
         #     # -- to immediately satisfy previous condition
         #     scheduler.switch_time_pass = context_switch
         else:
-            scheduler.switch_time_pass += 1
+            self.scheduler.switch_time_pass += 1
 
-        scheduler.cpu.update_burst()
-        scheduler.time = scheduler.time + 1
+        self.scheduler.cpu.update_burst()
+        self.scheduler.time = scheduler.time + 1
 
         # Print Queues
-        view.print_all_queues()
+        self.view.print_all_queues()
 
         # CPU
         # -- if a context switch occured, no process is "in" the CPU
-        if(prev_switch != scheduler.switch_time_pass):
+        if(prev_switch != self.scheduler.switch_time_pass):
             print("CPU : ")
         else:
-            print(f"CPU : {scheduler.cpu.name}")
+            print(f"CPU : {self.scheduler.cpu.name}")
 
         # Print I/0
-        if scheduler.io_list:
-            view.print_io()
+        if self.scheduler.io_list:
+            self.view.print_io()
 
         # Check if CPU should be cleared (process is done/ran out of quantum)
         # -- Case 1: process finished current cpu burst time
         if current_proc.burst_remaining == 0 and current_proc.name != "":
             if  current_proc.idx >= len(current_proc.io_burst): # process ends after consuming its last burst
-                done_processes.append(scheduler.cpu) # put process to DONE queue
-                current_proc.completion_time = scheduler.time
+                done_processes.append(self.scheduler.cpu) # put process to DONE queue
+                current_proc.completion_time = self.scheduler.time
                 scheduler.empty_cpu()
             else: # process not done yet; move to i/o
-                scheduler.move_to_io()
-                scheduler.empty_cpu()
+                self.scheduler.move_to_io()
+                self.scheduler.empty_cpu()
 
         # -- Case 2: process ran out of allotment
         # ----- The process should be demoted, except if
         # ----- it's in the bottommost queue already
         elif current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
-            process_demoted = scheduler.cpu.name
+            process_demoted = self.scheduler.cpu.name
             # Case 2.1: process is not the last queue
             if current_proc.queue_number != 3:
-                scheduler.move_process_down_queue()
+                self.scheduler.move_process_down_queue()
 
             # Case 2.2: process is in the last queue
             else:
-                scheduler.priority_queues[2].add_process(scheduler.cpu)
+                self.scheduler.priority_queues[2].add_process(scheduler.cpu)
 
-            scheduler.empty_cpu()
+            self.scheduler.empty_cpu()
 
         # -- Case 3: process ran out of quantum (Q1)
         # ----- Reset quantum and put process at the end of Q1's RQ
         elif current_proc.quantum_passed == Q1_QUANTUM and current_proc.queue_number == 1 and current_proc.q1_run_counter == 0:
             current_proc.q1_run_counter += 1
-            scheduler.finished_list.append(current_proc)
-            # scheduler.queue_one.append(current_proc)
-            scheduler.empty_cpu()
+            self.scheduler.finished_list.append(current_proc)
+            # self.scheduler.queue_one.append(current_proc)
+            self.scheduler.empty_cpu()
 
         # Print Demoted Process
-        view.print_demotion(process_demoted)
+        self.view.print_demotion(process_demoted)
 
         print()
 
@@ -465,7 +465,7 @@ class Controller:
         allotments:list[int] = []
         done_processes:list[Process] = []
         allotments, context_switch = view.get_scheduler_details()
-        while scheduler.idle != True:
+        while self.scheduler.idle != True:
             """
             1) Check for arriving processes
             2) Move arriving processes to Queue One
