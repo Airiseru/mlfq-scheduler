@@ -32,7 +32,7 @@ from __future__ import annotations
 from typing import Protocol
 from os import path
 from io import TextIOWrapper
-from sys import argv
+from sys import argv, maxsize
 from pathlib import Path
 from dataclasses import dataclass, field
 from functools import reduce
@@ -308,7 +308,7 @@ class MFLQScheduler:
             
             self.empty_cpu()
         
-        elif self.cpu.quantum_passed == self.allotments[self.cpu.queue_number - 1]:
+        elif self.cpu.queue_number != 3 and self.cpu.quantum_passed == self.allotments[self.cpu.queue_number - 1]:
             process_demoted = self.cpu
             self.move_process_down_queue()
                 
@@ -344,6 +344,7 @@ class MFLQScheduler:
                     self.add_to_queue(proc.queue_number, proc)
                 else:
                     self.done_processes.append(proc)
+                    self.finished_execution.append(proc)
                     proc.completion_time = self.time + 1
                 
                 self.remove_from_io(proc)
@@ -484,7 +485,7 @@ class Controller:
             self.model.update_time()
             
             #Really ugly ik but works for now
-            if ret_next == True:
+            if ret_next == True or self.model.time > 90:
                 break
             if len(self.model.finished_execution) >= self.model.num_procs:
                 ret_next = True
