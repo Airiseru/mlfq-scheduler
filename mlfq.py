@@ -32,11 +32,11 @@ from __future__ import annotations
 from typing import Protocol
 from os import path
 from io import TextIOWrapper
-from sys import argv
 from pathlib import Path
 from dataclasses import dataclass, field
 from enum import auto
 from strenum import StrEnum
+import argparse
 
 # constants
 Q1_QUANTUM: int = 4
@@ -212,7 +212,7 @@ class MFLQScheduler:
         self.io_list.remove(proc)
 
     def try_idle(self) -> bool:
-        if (self.io_list != [] or scheduler.current_process.name != ""):
+        if (self.io_list != [] or self.current_process.name != ""):
             self.idle = False
             return False
 
@@ -239,30 +239,32 @@ class View:
     def __init__(self, scheduler:MFLQScheduler) -> None:
         self._scheduler = scheduler
 
-    def get_scheduler_details(self) -> tuple[list[int], int]:
+    def get_scheduler_details(self, strpath:str="") -> tuple[list[int], int]:
         """Get scheduler details from user details"""
         allotments:list[int] = list()
         num_procs:int = 0
         context_switch_duration = 0
 
-        # Case : input.txt file was provided
-        if (len(argv) > 1):
-            file_path = Path(argv[1])
-            if not path.exists(file_path) or ".txt" not in argv[1]:
-                raise FileNotFoundError("Input: not a valid input file")
-            try:
-                with open(file_path, "r") as input:
-                    # no input validation is done
-                    num_procs = int(input.readline().strip("\n "))
-                    allotments.append(int(input.readline().strip("\n ")))
-                    allotments.append(int(input.readline().strip("\n ")))
-                    context_switch_duration = int(input.readline().strip("\n "))
-                    self._get_process_details(num_procs, input)
-                    return allotments, context_switch_duration
-            except:
-                raise FileNotFoundError("Input: unable to open provided input text file")
-
-        # Case : no input.txt file was provided
+        # Case : for testing purposes
+        if strpath != "":
+            file_path = Path(strpath)
+        else:
+            parser = argparse.ArgumentParser()
+            parser.add_argument("-f", "--file")
+            # Case : input.txt file was provided
+            file_path = Path(parser.parse_args().file)
+        if path.exists(file_path):
+            with open(file_path, "r") as input:
+                # no input validation is done
+                num_procs = int(input.readline().strip("\n "))
+                allotments.append(int(input.readline().strip("\n ")))
+                allotments.append(int(input.readline().strip("\n ")))
+                context_switch_duration = int(input.readline().strip("\n "))
+                self._get_process_details(num_procs, input)
+                return allotments, context_switch_duration
+        if file_path and not path.exists(file_path):
+            print("Invalid input file")
+        # Case : no input.txt file was provided or it was invalid
         print("# Enter Scheduler Details #")
         num_procs = self._input_int_loop(0, 12)
         allotments.append(self._input_int_loop(4, float('inf'))) # q1 time allotment
@@ -518,13 +520,13 @@ class Controller:
             self.scheduler.empty_cpu() """
 
 
-    def run(self):
+    def run(self, inputpath:str =""):
         self.view.print_scheduler_log()
 
         # Get scheduler details from input
         allotments:list[int] = []
         done_processes:list[Process] = []
-        allotments, context_switch = self.view.get_scheduler_details()
+        allotments, context_switch = self.view.get_scheduler_details(inputpath)
 
         while not self.scheduler.idle:
             """
@@ -555,8 +557,8 @@ class Controller:
             # self.check_preemption(self.scheduler.current_process, done_processes, allotments, int(context_switch))
             self.scheduler.try_idle()
 
-        view.print_simulation_done()
-        view.print_scheduler_metrics()
+        self.view.print_simulation_done()
+        self.view.print_scheduler_metrics()
 
 if __name__ == "__main__":
     scheduler: MFLQScheduler = \
