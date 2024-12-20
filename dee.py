@@ -76,6 +76,10 @@ class Process:
             io_burst =      [int(splitted_inp[i]) for i in range(2, len(splitted_inp)) if i%2!=0] # odd indices
         )
 
+    @classmethod
+    def default(cls) -> Process:
+        return Process("",-1,[-1],[-1])
+
 
 class SchedulerAlgorithm(Protocol):
     """Protocol for Scheduler"""
@@ -91,7 +95,7 @@ class SchedulerAlgorithm(Protocol):
     def add_process_start(self, proc: Process) -> None:
         self._priority_queue = [proc] + self._priority_queue
     
-    def remove_process(self, index:int=0) -> Process:
+    def dequeue_process(self, index:int=0) -> Process:
         return self._priority_queue.pop(index)
 
     @property
@@ -132,6 +136,7 @@ class MLFQScheduler:
     arriving_list: list[Process] = field(default_factory=list)
     io_list: list[Process] = field(default_factory=list)
     finished_processes: list[Process] = field(default_factory=list) # tracks processes that are done with their burst
+    # removed_processes: list[Process] = field(default_factory=list)
     priority_queues: list[SchedulerAlgorithm] = field(default_factory=list)
     time: int = field(default=0)
     is_idle: bool = field(default=True)
@@ -164,13 +169,13 @@ class MLFQScheduler:
         old_process = self.current_process
 
         if self.priority_queues[0].priority_queue and self.cpu.name == "":
-            self.cpu = self.priority_queues[0].remove_process()
+            self.cpu = self.priority_queues[0].dequeue_process()
 
         elif self.priority_queues[1].priority_queue and self.cpu.name == "":
-            self.cpu = self.priority_queues[1].remove_process()
+            self.cpu = self.priority_queues[1].dequeue_process()
 
         elif self.priority_queues[2].priority_queue and self.cpu.name == "":
-            self.cpu = self.priority_queues[2].remove_process()
+            self.cpu = self.priority_queues[2].dequeue_process()
 
         if old_process != self.current_process:
             self.switch_time_pass = 0 # Reset context switch counter
@@ -191,6 +196,7 @@ class MLFQScheduler:
         self.current_process.quantum_passed = 0
         self.add_to_queue(queue_no+1, self.cpu)
         self.current_process.queue_number += 1 # update queue number
+        # self.removed_process = self.current_process
         self.empty_cpu() # empty cpu
 
     """Function to move a process to the io"""
@@ -344,6 +350,7 @@ class Controller:
         self.scheduler = scheduler
         self.done_processes: list[Process] = list()
         self.finished_quantum: list[Process] = list()
+        self.removed_process = Process.default()
         self.finished_io: list[Process] = list()
 
     def get_topmost_process(self) -> None:
@@ -460,6 +467,9 @@ class Controller:
                 scheduler.add_to_queue(proc.queue_number, proc)
                 prev_process = self.finished_quantum.pop(0)
             
+            if self.removed_process.name != "":
+                prev_process = self.removed_process
+
             # Add to queue those that finished the io
             for proc in self.finished_io:
                 scheduler.add_to_queue(proc.queue_number, proc)
@@ -470,8 +480,13 @@ class Controller:
             # Get the process at topmost queue
             self.get_topmost_process()
 
-            # Check if cpu was in idle mode
-            if scheduler.is_idle or (prev_process == scheduler.cpu):
+            # Check if there's NO need to context switch
+            # -- idle
+            # -- previous process is same as next process
+            # -- demoted process is same as next process
+            if scheduler.is_idle or \
+               (prev_process == scheduler.cpu) or \
+               (demoted_process == scheduler.cpu.name):
                 scheduler.switch_time_pass = context_switch
 
             # Print queues
@@ -545,7 +560,7 @@ class Controller:
                     # Case 1: Process is not in the last queue
                     if current_proc.queue_number != 3:
                         scheduler.move_process_down_queue()
-                    
+
                     # Case 2: Process is in the last queue
                     else:
                         scheduler.priority_queues[2].add_process(scheduler.cpu)
