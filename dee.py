@@ -545,7 +545,7 @@ class Controller:
                 # Process still not done; move to IO
                 else:
                     demoted = False
-                    if current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
+                    if current_proc.queue_number != 3 and current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
                         demoted_process = current_proc.name
                         demoted = True
                     scheduler.move_to_io(demoted)
