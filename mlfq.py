@@ -402,7 +402,7 @@ class Controller:
                     self.scheduler.add_to_queue(proc.queue_number, proc)
                 else: # no more bursts => DONE
                     done_processes.append(proc)
-                    proc.completion_time = scheduler.time
+                    proc.completion_time = self.scheduler.time
                 self.scheduler.remove_from_io(proc)
             proc.quantum_passed += 1
 
@@ -471,7 +471,7 @@ class Controller:
 
                 # Case 2.2: process is in the last queue
                 else:
-                    self.scheduler.priority_queues[2].add_process(scheduler.cpu)
+                    self.scheduler.priority_queues[2].add_process(self.scheduler.cpu)
 
                 self.scheduler.empty_cpu()
 
@@ -561,7 +561,7 @@ class Controller:
         self.view.print_scheduler_metrics()
 
 if __name__ == "__main__":
-    scheduler: MFLQScheduler = \
+    program_scheduler: MFLQScheduler = \
         MFLQScheduler(
             priority_queues = [
                 RoundRobinAlgorithm(),
@@ -570,9 +570,9 @@ if __name__ == "__main__":
             ],
             cpu = Process.default()
     )
-    view: View = View(scheduler)
-    controller: Controller = Controller(view, scheduler)
+    program_view: View = View(program_scheduler)
+    program_controller: Controller = Controller(program_view, program_scheduler)
 
-    controller.run()
+    program_controller.run()
 
 
