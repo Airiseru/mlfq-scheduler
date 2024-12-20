@@ -322,9 +322,11 @@ class View:
 
     def print_all_queues(self) -> None:
         print("Queues : ", end="")
-        for _, elem in enumerate(self._scheduler.priority_queues):
-            print(f"[{self._proc_list_to_str(elem.priority_queue)}]",end=";")
-        print()
+        for idx, elem in enumerate(self._scheduler.priority_queues):
+            if idx == (len(self._scheduler.priority_queues) - 1):
+                print(f"[{self._proc_list_to_str(elem.priority_queue)}]")
+            else:
+                print(f"[{self._proc_list_to_str(elem.priority_queue)}]",end=";")
 
     def print_cpu(self, proc_name: str = "") -> None:
         print(f"CPU : {proc_name}")
