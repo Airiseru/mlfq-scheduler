@@ -438,7 +438,7 @@ class Controller:
 
             # Print timestamp
             view.print_timestamp()
-
+            print(scheduler.switch_time_pass)
             # Get the arriving processes
             scheduler.get_arriving_processes()
 
@@ -455,8 +455,10 @@ class Controller:
             scheduler.add_time
 
             # Add to the queue the processes that used up the quantum (returning from cpu)
+            prev_process = None
             for proc in self.finished_quantum:
                 scheduler.add_to_queue(proc.queue_number, proc)
+                prev_process = self.finished_quantum.pop(0)
             
             # Add to queue those that finished the io
             for proc in self.finished_io:
@@ -469,7 +471,7 @@ class Controller:
             self.get_topmost_process()
 
             # Check if cpu was in idle mode
-            if scheduler.is_idle:
+            if scheduler.is_idle or (prev_process == scheduler.cpu):
                 scheduler.switch_time_pass = context_switch
 
             # Print queues
@@ -486,7 +488,7 @@ class Controller:
 
                 # Check if quantum was used up; add to top queue
                 self.check_process_quantum()
-            elif scheduler.cpu.name != "":
+            elif scheduler.switch_time_pass != context_switch:
                 scheduler.switch_time_pass += 1
                 scheduler.is_idle = False
             
@@ -496,6 +498,8 @@ class Controller:
                 scheduler.is_idle = False
             # Context switch occured (so no process was updated) or scheduler is done running
             elif old_cs != scheduler.switch_time_pass or demoted or sched_done:
+                if demoted:
+                    scheduler.is_idle = True
                 view.print_cpu()
             else:
                 scheduler.is_idle = True
