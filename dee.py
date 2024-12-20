@@ -418,6 +418,7 @@ class Controller:
         view = self.view
         scheduler = self.scheduler
         sched_done = False
+        demoted = False
 
         # Get scheduler details from input
         allotments, context_switch = view.get_scheduler_details()
@@ -494,7 +495,7 @@ class Controller:
                 view.print_cpu(process_ran_name)
                 scheduler.is_idle = False
             # Context switch occured (so no process was updated) or scheduler is done running
-            elif old_cs != scheduler.switch_time_pass or sched_done:
+            elif old_cs != scheduler.switch_time_pass or demoted or sched_done:
                 view.print_cpu()
             else:
                 scheduler.is_idle = True
