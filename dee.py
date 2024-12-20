@@ -513,7 +513,7 @@ class Controller:
                 scheduler.is_idle = False
             # Context switch occured (so no process was updated) or scheduler is done running
             elif old_cs != scheduler.switch_time_pass or demoted or sched_done:
-                if demoted:
+                if demoted and old_cs == scheduler.switch_time_pass:
                     scheduler.is_idle = True
                 view.print_cpu()
             else:
