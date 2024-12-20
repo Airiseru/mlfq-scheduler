@@ -1,10 +1,13 @@
 from pathlib import Path
 import pytest
-from pytest import CaptureFixture
 
-@pytest.mark.parametrize("inputpath", ["tests/testcase1.txt"])
-def test_case1(inputpath,get_controller, capsys) -> None: #type:ignore
-    get_controller.run(inputpath) #type:ignore
-    result:CaptureFixture[str] = capsys.readouterr() #type:ignore
-    with open(Path("tests/expected1.txt")) as expected:
+TESTCASENUM = 6
+
+@pytest.mark.parametrize("testcase_num", [i for i in range(1,TESTCASENUM+1)])
+def test_correctness(testcase_num,get_controller, capsys) -> None: #type:ignore
+    get_controller.run(f"tests/testcase{testcase_num}.txt") #type:ignore
+    out, _ = capsys.readouterr() #type:ignore
+    with open(Path(f"tests/expected{testcase_num}.txt"),"r") as expected:
         assert expected.readlines() == out.splitlines(keepends=True) #type:ignore
+
+
