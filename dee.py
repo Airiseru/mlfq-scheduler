@@ -136,7 +136,6 @@ class MLFQScheduler:
     arriving_list: list[Process] = field(default_factory=list)
     io_list: list[Process] = field(default_factory=list)
     finished_processes: list[Process] = field(default_factory=list) # tracks processes that are done with their burst
-    # removed_processes: list[Process] = field(default_factory=list)
     priority_queues: list[SchedulerAlgorithm] = field(default_factory=list)
     time: int = field(default=0)
     is_idle: bool = field(default=True)
@@ -196,7 +195,6 @@ class MLFQScheduler:
         self.current_process.quantum_passed = 0
         self.add_to_queue(queue_no+1, self.cpu)
         self.current_process.queue_number += 1 # update queue number
-        # self.removed_process = self.current_process
         self.empty_cpu() # empty cpu
 
     """Function to move a process to the io"""
@@ -295,7 +293,7 @@ class View:
 
     def print_scheduler_metrics(self) -> None:
         """Prints the turnaround time per process, average turnaround time, waiting time"""
-        ...
+        
         sub_total = 0
         for proc in sorted(self._scheduler.process_list, key=lambda x: x.name):
             sub_total += proc.get_turnaround_time()
@@ -353,6 +351,7 @@ class Controller:
         self.removed_process = Process.default()
         self.finished_io: list[Process] = list()
 
+    """Function for 'preemption'"""
     def get_topmost_process(self) -> None:
         # Find minimum queue number
         min_queue_num = min(
@@ -360,16 +359,30 @@ class Controller:
             enumerate([pq.priority_queue for pq in self.scheduler.priority_queues])]
         )
 
-        # If there's a higher queue or there's more than 1 process in queue 3 (aside from current process)
-        if min_queue_num < self.scheduler.cpu.queue_number or (min_queue_num == 3 and self.scheduler.cpu.queue_number == 3):
+        # If there's a process in a higher queue, load that process
+        if min_queue_num < self.scheduler.cpu.queue_number:
             self.scheduler.add_to_queue(self.scheduler.cpu.queue_number, self.scheduler.cpu)
             self.scheduler.empty_cpu()
             self.scheduler.queue_to_CPU()
+        
+        # For the case when there's more than one process in queue 3
+        if min_queue_num == 3 and self.scheduler.cpu.queue_number == 3:
+            next_in_line = scheduler.priority_queues[min_queue_num-1].priority_queue[0]
+
+            # If there is more than one process in queue 3
+            if next_in_line != None:
+
+                # Check if the first process in the queue has a lesser burst time or is alphabetically "less" than the current
+                if (next_in_line.burst_remaining < scheduler.cpu.burst_remaining) or (next_in_line.burst_remaining == scheduler.cpu.burst_remaining and next_in_line.name < scheduler.cpu.name):
+                    self.scheduler.add_to_queue(self.scheduler.cpu.queue_number, self.scheduler.cpu)
+                    self.scheduler.empty_cpu()
+                    self.scheduler.queue_to_CPU()
         
         # If CPU is still empty, load a process from queue
         if self.scheduler.cpu.name == "":
             self.scheduler.queue_to_CPU()
 
+    """Function to run the CPU for one timestamp"""
     def run_one_cpu_quantum(self) -> None:
         self.scheduler.cpu.quantum_passed += 1
         self.scheduler.cpu.update_burst()
@@ -383,6 +396,7 @@ class Controller:
             self.finished_quantum.append(current_proc)
             self.scheduler.empty_cpu()
 
+    """Function to run the IO for one timestamp"""
     def run_one_io_quantum(self) -> None:
         for proc in self.scheduler.io_list:
             proc.quantum_passed += 1
@@ -415,6 +429,7 @@ class Controller:
 
         return sorted(final_lst, key = lambda p: p.name)
     
+    """Function to update the process' current remaining burst"""
     def set_burst_remaining(self, proc: Process, idx: int) -> None:
         proc.burst_remaining = proc.cpu_burst[idx]
     
@@ -516,6 +531,7 @@ class Controller:
                 if demoted and old_cs == scheduler.switch_time_pass:
                     scheduler.is_idle = True
                 view.print_cpu()
+            # For idle case
             else:
                 view.print_cpu()
                 scheduler.is_idle = True
@@ -567,7 +583,7 @@ class Controller:
                         scheduler.priority_queues[2].add_process(scheduler.cpu)
                     
                     scheduler.empty_cpu()
-
+            
             view.print_newline()
         
         view.print_simulation_done()
