@@ -35,7 +35,6 @@ from io import TextIOWrapper
 from sys import argv
 from pathlib import Path
 from dataclasses import dataclass, field
-from functools import reduce
 from enum import auto
 from strenum import StrEnum
 
@@ -213,7 +212,7 @@ class MFLQScheduler:
         self.io_list.remove(proc)
 
     def try_idle(self) -> bool:
-        if (self.io_list != [] or scheduler.current_process.name != ""):
+        if (self.io_list != [] or self.current_process.name != ""):
             self.idle = False
             return False
 
@@ -240,7 +239,7 @@ class View:
     def __init__(self, scheduler:MFLQScheduler) -> None:
         self._scheduler = scheduler
 
-    def get_scheduler_details(self) -> tuple[list[int], float]:
+    def get_scheduler_details(self) -> tuple[list[int], int]:
         """Get scheduler details from user details"""
         allotments:list[int] = list()
         num_procs:int = 0
@@ -392,7 +391,7 @@ class Controller:
                     self.scheduler.add_to_queue(proc.queue_number, proc)
                 else: # no more bursts => DONE
                     done_processes.append(proc)
-                    proc.completion_time = scheduler.time
+                    proc.completion_time = self.scheduler.time
                 self.scheduler.remove_from_io(proc)
             proc.quantum_passed += 1
 
@@ -401,7 +400,7 @@ class Controller:
         # Remove context switch for start
         if self.scheduler.time == 0:
             self.scheduler.switch_time_pass = context_switch
-    
+
     """Update quantum for process in CPU"""
     def update_process_quantum(self, context_switch:int):
         # Update Quantum for Process in CPU
@@ -429,7 +428,7 @@ class Controller:
             return ProcessState.FINISHED_ALLOTMENT
         elif current_proc.quantum_passed == Q1_QUANTUM and \
              current_proc.queue_number == 1 and \
-             current_proc.q1_run_counter == 0: 
+             current_proc.q1_run_counter == 0:
             return ProcessState.FINISHED_QUANTUM
 
     """Update state of the scheduler"""
@@ -461,7 +460,7 @@ class Controller:
 
                 # Case 2.2: process is in the last queue
                 else:
-                    self.scheduler.priority_queues[2].add_process(scheduler.cpu)
+                    self.scheduler.priority_queues[2].add_process(self.scheduler.cpu)
 
                 self.scheduler.empty_cpu()
 
@@ -470,10 +469,10 @@ class Controller:
                 self.scheduler.finished_list.append(current_proc)
                 # self.scheduler.queue_one.append(current_proc)
                 self.scheduler.empty_cpu()
-            
+
             case _:
                 ...
-        
+
         return process_demoted
         """ # Check if CPU should be cleared (process is done/ran out of quantum)
         # -- Case 1: process finished current cpu burst time
@@ -508,11 +507,11 @@ class Controller:
             self.scheduler.finished_list.append(current_proc)
             # self.scheduler.queue_one.append(current_proc)
             self.scheduler.empty_cpu() """
-    
+
     def print_demoted(self, process_demoted:Process):
         self.view.print_demotion(process_demoted.name)
         print()
-    
+
     def print_all_queues(self):
         # Print Queues
         self.view.print_all_queues()
@@ -534,8 +533,8 @@ class Controller:
         # Get scheduler details from input
         allotments:list[int] = []
         done_processes:list[Process] = []
-        allotments, context_switch = view.get_scheduler_details()
-        
+        allotments, context_switch = self.view.get_scheduler_details()
+
         while not self.scheduler.idle:
             """
             1) Check for arriving processes
@@ -565,22 +564,22 @@ class Controller:
             # self.check_preemption(self.scheduler.current_process, done_processes, allotments, int(context_switch))
             self.scheduler.try_idle()
 
-        view.print_simulation_done()
-        view.print_scheduler_metrics()
+        self.view.print_simulation_done()
+        self.view.print_scheduler_metrics()
 
 if __name__ == "__main__":
-    scheduler: MFLQScheduler = \
+    program_scheduler: MFLQScheduler = \
         MFLQScheduler(
             priority_queues = [
-                RoundRobinAlgorithm(), 
-                FCFSAlgorithm(), 
+                RoundRobinAlgorithm(),
+                FCFSAlgorithm(),
                 SJFAlgorithm()
             ],
             cpu = Process.default()
     )
-    view: View = View(scheduler)
-    controller: Controller = Controller(view, scheduler)
+    program_view: View = View(program_scheduler)
+    program_controller: Controller = Controller(program_view, program_scheduler)
 
-    controller.run()
+    program_controller.run()
 
 
