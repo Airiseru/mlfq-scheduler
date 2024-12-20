@@ -51,7 +51,7 @@ class Process:
 
     """Function to calculate the waiting time"""
     def get_waiting_time(self) -> int:
-        return self.get_turnaround_time() - sum(self.cpu_burst)
+        return self.get_turnaround_time() - sum(self.cpu_burst) - sum (self.io_burst)
 
     """Function to get the waiting time in a string format for printing"""
     def print_waiting_time(self) -> str:
@@ -392,7 +392,7 @@ class Controller:
     def check_process_quantum(self) -> None:
         current_proc = self.scheduler.cpu
 
-        if (current_proc.quantum_passed%Q1_QUANTUM) == 0 and current_proc.queue_number == 1 and current_proc.q1_run_counter <= self.min_quantum_iters and current_proc.quantum_passed != current_proc.cpu_burst[current_proc.idx]:
+        if (current_proc.quantum_passed%Q1_QUANTUM) == 0 and current_proc.queue_number == 1 and current_proc.q1_run_counter < self.min_quantum_iters and current_proc.quantum_passed != current_proc.cpu_burst[current_proc.idx]:
             current_proc.q1_run_counter += 1
             self.finished_quantum.append(current_proc)
             self.scheduler.empty_cpu()
@@ -447,7 +447,10 @@ class Controller:
         allotments, context_switch = view.get_scheduler_details()
 
         # Define the minimum number of times a process can run in queue 1 based on allotment and quantum
-        self.min_quantum_iters = allotments[0] // Q1_QUANTUM
+        if allotments[0] % Q1_QUANTUM != 0:
+            self.min_quantum_iters = allotments[0] // Q1_QUANTUM
+        else:
+            self.min_quantum_iters = (allotments[0] - 1) // Q1_QUANTUM
 
         # Set initial burst remaining
         for proc in self.scheduler.process_list:
