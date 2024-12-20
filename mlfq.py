@@ -212,7 +212,7 @@ class MFLQScheduler:
         self.io_list.remove(proc)
 
     def try_idle(self) -> bool:
-        if (self.io_list != [] or self.current_process.name != ""):
+        if (self.io_list != [] or scheduler.current_process.name != ""):
             self.idle = False
             return False
 
@@ -339,11 +339,20 @@ class View:
         print()
 
     def print_io(self) -> None:
-        print(f"I/O : [{self._proc_list_to_str(self._scheduler.in_io)}]")
+        if self._scheduler.io_list:
+            print(f"I/O : [{self._proc_list_to_str(self._scheduler.in_io)}]")
 
     def print_demotion(self, process_name: str) -> None:
         if process_name != "":
             print(f"{process_name} DEMOTED")
+            print()
+
+    def print_current_process(self, prev_switch: int):
+        # -- if a context switch occured, no process is "in" the CPU
+        if(prev_switch != self._scheduler.switch_time_pass):
+            print("CPU : ")
+        else:
+            print(f"CPU : {self._scheduler.cpu.name}")
 
     def print_simulation_done(self) -> None:
         print("SIMULATION DONE\n")
@@ -391,7 +400,7 @@ class Controller:
                     self.scheduler.add_to_queue(proc.queue_number, proc)
                 else: # no more bursts => DONE
                     done_processes.append(proc)
-                    proc.completion_time = self.scheduler.time
+                    proc.completion_time = scheduler.time
                 self.scheduler.remove_from_io(proc)
             proc.quantum_passed += 1
 
@@ -424,11 +433,11 @@ class Controller:
 
         if current_proc.burst_remaining == 0 and current_proc.name != "":
             return ProcessState.FINISHED_BURST
-        elif current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
-            return ProcessState.FINISHED_ALLOTMENT
-        elif current_proc.quantum_passed == Q1_QUANTUM and \
-             current_proc.queue_number == 1 and \
-             current_proc.q1_run_counter == 0:
+        if current_proc.quantum_passed == allotments[current_proc.queue_number-1]:
+                return ProcessState.FINISHED_ALLOTMENT
+        if current_proc.quantum_passed == Q1_QUANTUM and \
+            current_proc.queue_number == 1 and \
+            current_proc.q1_run_counter == 0:
             return ProcessState.FINISHED_QUANTUM
 
     """Update state of the scheduler"""
@@ -460,7 +469,7 @@ class Controller:
 
                 # Case 2.2: process is in the last queue
                 else:
-                    self.scheduler.priority_queues[2].add_process(self.scheduler.cpu)
+                    self.scheduler.priority_queues[2].add_process(scheduler.cpu)
 
                 self.scheduler.empty_cpu()
 
@@ -508,24 +517,6 @@ class Controller:
             # self.scheduler.queue_one.append(current_proc)
             self.scheduler.empty_cpu() """
 
-    def print_demoted(self, process_demoted:Process):
-        self.view.print_demotion(process_demoted.name)
-        print()
-
-    def print_all_queues(self):
-        # Print Queues
-        self.view.print_all_queues()
-
-    def print_current_process(self, prev_switch: int):
-        # -- if a context switch occured, no process is "in" the CPU
-        if(prev_switch != self.scheduler.switch_time_pass):
-            print("CPU : ")
-        else:
-            print(f"CPU : {self.scheduler.cpu.name}")
-
-    def print_io(self):
-        if self.scheduler.io_list:
-            self.view.print_io()
 
     def run(self):
         self.view.print_scheduler_log()
@@ -553,22 +544,22 @@ class Controller:
             self.update_io(done_processes)
             prev_switch = self.scheduler.switch_time_pass
             self.update_process_quantum(context_switch)
-            self.print_all_queues()
-            self.print_current_process(prev_switch)
-            self.print_io()
+            self.view.print_all_queues()
+            self.view.print_current_process(prev_switch)
+            self.view.print_io()
             demoted:Process = self.update_scheduler_state(
                 done_processes,
                 allotments
             )
-            self.print_demoted(demoted)
+            self.view.print_demotion(demoted.name)
             # self.check_preemption(self.scheduler.current_process, done_processes, allotments, int(context_switch))
             self.scheduler.try_idle()
 
-        self.view.print_simulation_done()
-        self.view.print_scheduler_metrics()
+        view.print_simulation_done()
+        view.print_scheduler_metrics()
 
 if __name__ == "__main__":
-    program_scheduler: MFLQScheduler = \
+    scheduler: MFLQScheduler = \
         MFLQScheduler(
             priority_queues = [
                 RoundRobinAlgorithm(),
@@ -577,9 +568,9 @@ if __name__ == "__main__":
             ],
             cpu = Process.default()
     )
-    program_view: View = View(program_scheduler)
-    program_controller: Controller = Controller(program_view, program_scheduler)
+    view: View = View(scheduler)
+    controller: Controller = Controller(view, scheduler)
 
-    program_controller.run()
+    controller.run()
 
 
