@@ -445,7 +445,7 @@ class Controller:
 
             # Print timestamp
             view.print_timestamp()
-            print(scheduler.switch_time_pass)
+            
             # Get the arriving processes
             scheduler.get_arriving_processes()
 
@@ -517,6 +517,7 @@ class Controller:
                     scheduler.is_idle = True
                 view.print_cpu()
             else:
+                view.print_cpu()
                 scheduler.is_idle = True
 
             # Print the processes in io
