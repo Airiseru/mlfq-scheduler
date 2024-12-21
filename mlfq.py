@@ -87,21 +87,21 @@ class SchedulerAlgorithm(Protocol):
 
     def sort(self) -> None:
         ...
-    
+
     def add_process(self, proc: Process) -> None:
         self._priority_queue.append(proc)
         self.sort()
 
     def add_process_start(self, proc: Process) -> None:
         self._priority_queue = [proc] + self._priority_queue
-    
+
     def dequeue_process(self, index:int=0) -> Process:
         return self._priority_queue.pop(index)
 
     @property
     def priority_queue(self) -> list[Process]:
         return self._priority_queue
-    
+
 class RoundRobinAlgorithm(SchedulerAlgorithm):
     """Round Robin Scheduler Class"""
     def __init__(self, quantum: int):
@@ -155,9 +155,9 @@ class MLFQScheduler:
         for process in self.process_list:
             if process.arrival_time == self.time:
                 self.arriving_list.append(process)
-        
+
         self.arriving_list = sorted(self.arriving_list, key = lambda p: p.name)
-    
+
     """Function to add recently arrived processes to the queue"""
     def add_arriving_to_queue(self) -> None:
         while self.arriving_list:
@@ -178,7 +178,7 @@ class MLFQScheduler:
 
         if old_process != self.current_process:
             self.switch_time_pass = 0 # Reset context switch counter
-    
+
     """Function to add a process to proper queue"""
     def add_to_queue(self, queue_num: int, proc: Process) -> None:
         self.priority_queues[queue_num-1].add_process(proc)
@@ -224,7 +224,7 @@ class MLFQScheduler:
 class View:
     def __init__(self, scheduler: MLFQScheduler) -> None:
         self._scheduler = scheduler
-    
+
     """Function to get the details about the scheduler"""
     def get_scheduler_details(self) -> tuple[list[int], int]:
         allotments:list[int] = list()
@@ -286,14 +286,14 @@ class View:
         print(f"# Enter {num_procs} Process Details #")
         for _ in range(num_procs):
             self._scheduler.process_list.append(Process.create_new_process(input()))
-    
+
     def print_scheduler_log(self) -> None:
         """Prints the events from timestamp t=0 until all processes finish running"""
         print("# Scheduling Results #")
 
     def print_scheduler_metrics(self) -> None:
         """Prints the turnaround time per process, average turnaround time, waiting time"""
-        
+
         sub_total = 0
         for proc in sorted(self._scheduler.process_list, key=lambda x: x.name):
             sub_total += proc.get_turnaround_time()
@@ -303,7 +303,7 @@ class View:
 
         for proc in sorted(self._scheduler.process_list, key=lambda x: x.name):
             print(f"Waiting time for Process {proc.name} : {proc.print_waiting_time()}")
-    
+
     def print_timestamp(self) -> None:
         print(f"At Time = {self._scheduler.time}")
 
@@ -366,10 +366,13 @@ class Controller:
             self.scheduler.add_to_queue(self.scheduler.cpu.queue_number, self.scheduler.cpu)
             self.scheduler.empty_cpu()
             self.scheduler.queue_to_CPU()
-        
+
         # For the case when there's more than one process in queue 3
         if min_queue_num == 3 and self.scheduler.cpu.queue_number == 3:
-            next_in_line = scheduler.priority_queues[min_queue_num-1].priority_queue[0]
+            try:
+                next_in_line = scheduler.priority_queues[min_queue_num-1].priority_queue[0]
+            except:
+                next_in_line = None
 
             # If there is more than one process in queue 3
             if next_in_line != None:
@@ -379,7 +382,7 @@ class Controller:
                     self.scheduler.add_to_queue(self.scheduler.cpu.queue_number, self.scheduler.cpu)
                     self.scheduler.empty_cpu()
                     self.scheduler.queue_to_CPU()
-        
+
         # If CPU is still empty, load a process from queue
         if self.scheduler.cpu.name == "":
             self.scheduler.queue_to_CPU()
@@ -403,11 +406,11 @@ class Controller:
         for proc in self.scheduler.io_list:
             proc.quantum_passed += 1
             proc.update_io()
-    
+
     """Function to check which processes are done with IO and get them (sorted alphabetically)"""
     def check_proc_in_io(self) -> list[Process]:
-        final_lst = []
-        idx_to_remove = []
+        final_lst:list[Process] = []
+        idx_to_remove:list[int] = []
 
         for idx, proc in enumerate(self.scheduler.io_list):
             if proc.io_remaining == 0:
@@ -423,18 +426,18 @@ class Controller:
                     self.done_processes.append(proc)
                     self.scheduler.finished_processes.append(proc)
                     proc.completion_time = self.scheduler.time
-                
+
                 idx_to_remove.append(idx)
-        
+
         # Remove the finished IO's from the list
         self.scheduler.io_list = [proc for idx, proc in enumerate(self.scheduler.io_list) if idx not in idx_to_remove]
 
         return sorted(final_lst, key = lambda p: p.name)
-    
+
     """Function to update the process' current remaining burst"""
     def set_burst_remaining(self, proc: Process, idx: int) -> None:
         proc.burst_remaining = proc.cpu_burst[idx]
-    
+
     def run(self) -> None:
         # Other variables
         demoted_process: str = ""
@@ -468,7 +471,7 @@ class Controller:
 
             # Print timestamp
             view.print_timestamp()
-            
+
             # Get the arriving processes
             scheduler.get_arriving_processes()
 
@@ -493,7 +496,7 @@ class Controller:
             # Add to queue those that finished the io
             for proc in self.finished_io:
                 scheduler.add_to_queue(proc.queue_number, proc)
-            
+
             self.finished_quantum = []
             self.finished_io = []
 
@@ -511,7 +514,7 @@ class Controller:
 
             # Print queues
             view.print_all_queues()
-            
+
             # Check for context switch
             old_cs = scheduler.switch_time_pass
 
@@ -526,7 +529,7 @@ class Controller:
             elif scheduler.switch_time_pass != context_switch:
                 scheduler.switch_time_pass += 1
                 scheduler.is_idle = False
-            
+
             # Check if the CPU ran
             if cpu_ran:
                 view.print_cpu(process_ran_name)
@@ -544,7 +547,7 @@ class Controller:
             # Print the processes in io
             if scheduler.io_list:
                 view.print_io()
-            
+
             # Run the io
             self.run_one_io_quantum()
 
@@ -571,7 +574,7 @@ class Controller:
                         demoted_process = current_proc.name
                         demoted = True
                     scheduler.move_to_io(demoted)
-                    
+
                 scheduler.empty_cpu()
 
             # Check if process ran out of allotment (No I/O)
@@ -586,11 +589,11 @@ class Controller:
                     # Case 2: Process is in the last queue
                     else:
                         scheduler.priority_queues[2].add_process(scheduler.cpu)
-                    
+
                     scheduler.empty_cpu()
-            
+
             view.print_newline()
-        
+
         view.print_simulation_done()
         view.print_scheduler_metrics()
 
