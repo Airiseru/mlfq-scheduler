@@ -1,12 +1,12 @@
 import pytest
-from mlfq import MFLQScheduler, View, Controller, RoundRobinAlgorithm, FCFSAlgorithm, SJFAlgorithm, Process
+from mlfq import MLFQScheduler, View, Controller, RoundRobinAlgorithm, FCFSAlgorithm, SJFAlgorithm, Process, Q1_QUANTUM
 
 @pytest.fixture(autouse=True)
 def get_controller() -> Controller:
-    scheduler: MFLQScheduler = \
-        MFLQScheduler(
+    scheduler: MLFQScheduler = \
+        MLFQScheduler(
             priority_queues = [
-                RoundRobinAlgorithm(),
+                RoundRobinAlgorithm(Q1_QUANTUM),
                 FCFSAlgorithm(),
                 SJFAlgorithm()
             ],
