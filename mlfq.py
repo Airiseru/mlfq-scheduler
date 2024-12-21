@@ -579,17 +579,10 @@ class Controller:
 
             # Check if process ran out of allotment (No I/O)
             elif current_proc.queue_number != 3:
+                # -- condition: process should not be in Q3 as no allotment for that
                 if current_proc.quantum_passed == allotments[current_proc.queue_number -1]:
                     demoted_process = current_proc.name
-
-                    # Case 1: Process is not in the last queue
-                    if current_proc.queue_number != 3:
-                        scheduler.move_process_down_queue()
-
-                    # Case 2: Process is in the last queue
-                    else:
-                        scheduler.priority_queues[2].add_process(scheduler.cpu)
-
+                    scheduler.move_process_down_queue()
                     scheduler.empty_cpu()
 
             view.print_newline()
